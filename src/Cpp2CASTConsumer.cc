@@ -583,7 +583,8 @@ namespace cpp2c
                 EndDefinitionLocation,
                 InvocationLocation,
                 ASTKind,
-                TypeSignature;
+                TypeSignature,
+                Body;
 
             // Integer properties
             int
@@ -1097,6 +1098,27 @@ namespace cpp2c
                         TypeSignature += ")";
                 }
 
+                /*
+                We could use 
+
+                Body = clang::Lexer::getSourceText(clang::CharSourceRange::getCharRange(Exp->DefinitionRange.getBegin(), Exp->DefinitionRange.getEnd().getLocWithOffset(1)), SM, LO).str();
+
+                to get the body of the macro expansion without a loop, but this lacks info for each token, we also don't need to preserve whitespace.
+                */
+
+                // If macro is a function, must have return statement
+                if (Exp->MI->isFunctionLike() &&
+                    (ASTKind == "Stmt" || ASTKind == "Expr"))
+                    Body += "return ";
+
+                // Append the token to the body
+                for (auto& token : Exp->MI->tokens() ) {
+                    Body += MF->PP.getSpelling(token);
+                } 
+
+                // End of body statement needs semicolon
+                Body += ";";
+
                 // Set of all Stmts expanded from macro
                 std::set<const clang::Stmt *> AllStmtsExpandedFromMacro =
                     StmtsExpandedFromBody;
@@ -1138,6 +1160,7 @@ namespace cpp2c
                     {"InvocationLocation", InvocationLocation},
                     {"ASTKind", ASTKind},
                     {"TypeSignature", TypeSignature},
+                    {"Body", Body},
                 };
 
             std::vector<std::pair<std::string, int>> intEntries =
